@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { promisify } from 'util';
 import AdmZip from 'adm-zip';
-import { generateSecretKey, renderFile } from './utils';
+import { generateSecretKey, renderFile, appendToFile } from './utils';
 
 const exec = promisify(cp.exec);
 
@@ -23,7 +23,7 @@ export function activate(context: vscode.ExtensionContext) {
 	// commandId参数必须与package.json中的command字段匹配
 
 	// 注册build fastapi-helper命令
-	const buildFastapiCommand = vscode.commands.registerCommand('fastapi-helper.buildFastapiHelper', async (uri: vscode.Uri) => {
+	const buildFastapiCommand = vscode.commands.registerCommand('fastapi-helper.createProject', async (uri: vscode.Uri) => {
 		try {
 			// 获取工作区文件夹
 			const workspaceFolder = getWorkspaceFolder();
@@ -179,13 +179,172 @@ export function activate(context: vscode.ExtensionContext) {
 			});
 			vscode.window.showInformationMessage('所有依赖安装完成');
 		} catch (error) {
-			console.error('安装依赖时出错:', error);
-			throw new Error(`安装依赖失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			console.error('FastAPI Helper: 安装依赖时出错:', error);
+			throw new Error(`FastAPI Helper: 安装依赖失败: ${error instanceof Error ? error.message : '未知错误'}`);
 		}
 	}
 
-	
-	context.subscriptions.push(buildFastapiCommand);
+	// 注册Initialize Database命令
+	const initializeDatabaseCommand = vscode.commands.registerCommand('fastapi-helper.initializeDatabase', async (uri: vscode.Uri) => {
+		try {
+			// 获取工作区文件夹
+			const workspaceFolder = getWorkspaceFolder();
+			if (!workspaceFolder) {
+				return;
+			}
+
+			// 生成键值对
+			const dbConfig: Record<string, string> = {
+				'${db_host}': '',
+				'${db_port}': '',
+				'${db_username}': '',
+				'${db_password}': '',
+				'${db_name}': ''
+			};
+
+			// 依次提示用户输入数据库信息
+			const dbHost = await vscode.window.showInputBox({
+				prompt: '请输入数据库地址',
+				value: 'localhost'
+			});
+			if (!dbHost) {
+				vscode.window.showErrorMessage('数据库地址不能为空');
+				return;
+			}
+			dbConfig['${db_host}'] = dbHost;
+
+			const dbPort = await vscode.window.showInputBox({
+				prompt: '请输入数据库端口',
+				value: '5432'
+			});
+			if (!dbPort) {
+				vscode.window.showErrorMessage('数据库端口不能为空');
+				return;
+			}
+			dbConfig['${db_port}'] = dbPort;
+
+			const dbUsername = await vscode.window.showInputBox({
+				prompt: '请输入数据库账号',
+				value: 'postgres'
+			});
+			if (!dbUsername) {
+				vscode.window.showErrorMessage('数据库账号不能为空');
+				return;
+			}
+			dbConfig['${db_username}'] = dbUsername;
+
+			const dbPassword = await vscode.window.showInputBox({
+				prompt: '请输入数据库密码',
+				value: 'postgres'
+			});
+			if (!dbPassword) {
+				vscode.window.showErrorMessage('数据库密码不能为空');
+				return;
+			}
+			dbConfig['${db_password}'] = dbPassword;
+
+			const dbName = await vscode.window.showInputBox({
+				prompt: '请输入数据库名称',
+				value: 'fastapi'
+			});
+			if (!dbName) {
+				vscode.window.showErrorMessage('数据库名称不能为空');
+				return;
+			}
+			dbConfig['${db_name}'] = dbName;
+
+			// 执行数据库初始化步骤
+			await initializeAlembic(workspaceFolder);
+			await updateCoreSettings(workspaceFolder, dbConfig);
+			await updateAlembicIni(workspaceFolder, dbConfig);
+			await updateScriptPyMako(workspaceFolder);
+			await updateAlembicEnv(workspaceFolder);
+
+			vscode.window.showInformationMessage('FastAPI Helper: 数据库初始化完成！');
+		} catch (error) {
+			console.error('FastAPI Helper: 初始化数据库时出错:', error);
+			vscode.window.showErrorMessage(`FastAPI Helper: 初始化数据库失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	});
+
+	// 步骤1：初始化Alembic
+	async function initializeAlembic(workspaceFolder: string): Promise<void> {
+		try {
+			await exec('poetry run alembic init alembic -t async', { cwd: workspaceFolder });
+		} catch (error) {
+			console.error('FastAPI Helper: 初始化Alembic时出错:', error);
+			throw new Error(`初始化Alembic失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	}
+
+	// 步骤2：更新core/settings.py
+	async function updateCoreSettings(workspaceFolder: string, dbConfig: Record<string, string>): Promise<void> {
+		const settingsPath = path.join(workspaceFolder, 'core', 'settings.py');
+		if (fs.existsSync(settingsPath)) {
+			try {
+				renderFile(settingsPath, dbConfig);
+			} catch (error) {
+				console.error('FastAPI Helper: 更新settings.py时出错:', error);
+				throw new Error(`更新settings.py失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			}
+		} else {
+			vscode.window.showWarningMessage('FastAPI Helper: 未找到core/settings.py文件，请确保项目结构正确');
+		}
+	}
+
+	// 步骤3：更新alembic.ini
+	async function updateAlembicIni(workspaceFolder: string, dbConfig: Record<string, string>): Promise<void> {
+		const uriConfig: Record<string, string> = {
+			'driver://user:pass@localhost/dbname': `postgresql+asyncpg://${dbConfig["${db_username}"]}:${dbConfig["${db_password}"]}@${dbConfig["${db_host}"]}:${dbConfig["${db_port}"]}/${dbConfig["${db_name}"]}`
+		};
+		const alembicIniPath = path.join(workspaceFolder, 'alembic.ini');
+		if (fs.existsSync(alembicIniPath)) {
+			try {
+				renderFile(alembicIniPath, uriConfig);
+			} catch (error) {
+				console.error('FastAPI Helper: 更新alembic.ini时出错:', error);
+				throw new Error(`更新alembic.ini失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			}
+		} else {
+			vscode.window.showWarningMessage('FastAPI Helper: 未找到alembic.ini文件，请确保项目结构正确');
+		}
+	}
+
+	// 步骤4：更新alembic/script.py.mako
+	async function updateScriptPyMako(workspaceFolder: string): Promise<void> {
+		const scriptPyMakoPath = path.join(workspaceFolder, 'alembic', 'script.py.mako');
+		if (fs.existsSync(scriptPyMakoPath)) {
+			try {
+				appendToFile(scriptPyMakoPath, "import sqlalchemy as sa", "import sqlmodel.sql.sqltypes");
+			} catch (error) {
+				console.error('FastAPI Helper: 更新script.py.mako时出错:', error);
+				throw new Error(`更新script.py.mako失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			}
+		} else {
+			vscode.window.showWarningMessage('FastAPI Helper: 未找到script.py.mako文件，请确保项目结构正确');
+		}
+	}
+
+	// 步骤5：更新alembic/env.py
+	async function updateAlembicEnv(workspaceFolder: string): Promise<void> {
+		const envPyPath = path.join(workspaceFolder, 'alembic', 'env.py');
+		if (fs.existsSync(envPyPath)) {
+			try {
+				const metaConfig: Record<string, string> = {
+					"target_metadata = None": "target_metadata = SQLModel.metadata"
+				};
+				renderFile(envPyPath, metaConfig);
+				appendToFile(envPyPath, "from alembic import context", "from sqlmodel import SQLModel\nfrom schema import *\n");
+			} catch (error) {
+				console.error('FastAPI Helper: 更新env.py时出错:', error);
+				throw new Error(`更新env.py失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			}
+		} else {
+			vscode.window.showWarningMessage('FastAPI Helper: 未找到env.py文件，请确保项目结构正确');
+		}
+	}
+
+	context.subscriptions.push(buildFastapiCommand, initializeDatabaseCommand);
 }
 
 // 当扩展被停用时会调用此方法

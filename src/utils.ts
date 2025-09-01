@@ -35,7 +35,7 @@ export function renderFile(filePath: string, replacements: Record<string, string
 
         // 写入文件
         fs.writeFileSync(targetPath, content, 'utf-8');
-        
+
         console.log(`文件渲染完成: ${targetPath}`);
     } catch (error) {
         console.error('文件渲染失败:', error);
@@ -53,7 +53,64 @@ function escapeRegExp(string: string): string {
 }
 
 export function generateSecretKey() {
-    const array= new Uint8Array(32);
+    const array = new Uint8Array(32);
     crypto.getRandomValues(array);
     return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
+}
+
+/**
+ * 在文件中找到标志字符串，并在其下一行追加内容
+ * @param filePath 待修改的文件路径
+ * @param appendTag 标志字符串
+ * @param appendText 待追加的字符串（可能是多行）
+ * @param outputPath 文件输出路径，如果为空则输出到原文件位置
+ */
+export function appendToFile(filePath: string, appendTag: string, appendText: string, outputPath?: string): void {
+    try {
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`文件不存在: ${filePath}`);
+        }
+
+        // 读取文件内容
+        const content = fs.readFileSync(filePath, 'utf-8');
+        const lines = content.split('\n');
+
+        // 查找标志字符串所在的行
+        let targetLineIndex = -1;
+        for (let i = 0; i < lines.length; i++) {
+            if (lines[i].includes(appendTag)) {
+                targetLineIndex = i;
+                break;
+            }
+        }
+
+        if (targetLineIndex === -1) {
+            throw new Error(`未找到标志字符串: ${appendTag}`);
+        }
+
+        // 在标志字符串的下一行插入新内容
+        const appendLines = appendText.split('\n');
+        lines.splice(targetLineIndex + 1, 0, ...appendLines);
+
+        // 重新组合文件内容
+        const newContent = lines.join('\n');
+
+        // 确定输出路径
+        const targetPath = outputPath || filePath;
+
+        // 确保输出目录存在
+        const outputDir = path.dirname(targetPath);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+
+        // 写入文件
+        fs.writeFileSync(targetPath, newContent, 'utf-8');
+
+        console.log(`文件追加完成: ${targetPath}`);
+    } catch (error) {
+        console.error('文件追加失败:', error);
+        throw error;
+    }
 }

@@ -16,14 +16,20 @@
     "url": "https://github.com/madkarl/fastapi-helper.git"
   },
   "activationEvents": [
-    "onCommand:fastapi-helper.buildFastapiHelper"
+    "onCommand:fastapi-helper.createProject",
+    "onCommand:fastapi-helper.initializeDatabase"
   ],
   "main": "./dist/extension.js",
   "contributes": {
     "commands": [
       {
-        "command": "fastapi-helper.buildFastapiHelper",
-        "title": "Create A Basic Project",
+        "command": "fastapi-helper.createProject",
+        "title": "Create Project",
+        "category": "FastAPI Helper"
+      },
+      {
+        "command": "fastapi-helper.initializeDatabase",
+        "title": "Initialize Database",
         "category": "FastAPI Helper"
       }
     ],
@@ -36,7 +42,11 @@
       ],
       "fastapi-helper.submenu": [
         {
-          "command": "fastapi-helper.buildFastapiHelper",
+          "command": "fastapi-helper.createProject",
+          "group": "fastapi-helper"
+        },
+        {
+          "command": "fastapi-helper.initializeDatabase",
           "group": "fastapi-helper"
         }
       ]

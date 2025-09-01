@@ -6,7 +6,7 @@ import * as fs from 'fs';
 import * as cp from 'child_process';
 import { promisify } from 'util';
 import AdmZip from 'adm-zip';
-import { render_file } from './utils';
+import { generateSecretKey, renderFile } from './utils';
 
 const exec = promisify(cp.exec);
 
@@ -42,9 +42,9 @@ export function activate(context: vscode.ExtensionContext) {
 			// 执行初始化步骤
 			await initializePoetryProject(workspaceFolder);
 			await extractFastapiTemplate(zipPath, workspaceFolder);
+			await customizeProjectSettings(workspaceFolder);
 			await configurePypiSource(workspaceFolder);
 			await installDependencies(workspaceFolder);
-			await customizeProjectSettings(workspaceFolder);
 
 			vscode.window.showInformationMessage(`FastAPI项目已成功初始化：${workspaceFolder}`);
 		} catch (error) {
@@ -67,7 +67,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// 步骤1：初始化Poetry项目
 	async function initializePoetryProject(workspaceFolder: string): Promise<void> {
-		vscode.window.showInformationMessage('[1/4] 正在初始化Poetry项目...');
+		vscode.window.showInformationMessage('[1/5] 正在初始化Poetry项目...');
 		try {
 			await exec('poetry init --no-interaction', { cwd: workspaceFolder });
 			vscode.window.showInformationMessage('Poetry项目初始化完成');
@@ -79,7 +79,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// 步骤2：解压FastAPI项目模板
 	async function extractFastapiTemplate(zipPath: string, workspaceFolder: string): Promise<void> {
-		vscode.window.showInformationMessage('[2/4] 正在解压FastAPI项目模板...');
+		vscode.window.showInformationMessage('[2/5] 正在解压FastAPI项目模板...');
 		try {
 			const zip = new AdmZip(zipPath);
 			zip.extractAllTo(workspaceFolder, true);
@@ -90,54 +90,9 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	// 步骤3：配置PyPI源
-	async function configurePypiSource(workspaceFolder: string): Promise<void> {
-		vscode.window.showInformationMessage('[3/4] 正在配置PyPI源...');
-		const useTsinghua = await vscode.window.showQuickPick(['是', '否'], {
-			placeHolder: '是否使用清华PyPI源？(推荐中国大陆用户选择是)',
-			canPickMany: false
-		});
-
-		if (useTsinghua === '是') {
-			try {
-				await exec('poetry source add tsinghua https://pypi.tuna.tsinghua.edu.cn/simple/', { cwd: workspaceFolder });
-				vscode.window.showInformationMessage('清华PyPI源配置完成');
-			} catch (error) {
-				console.error('配置清华PyPI源时出错:', error);
-				throw new Error(`配置清华PyPI源失败: ${error instanceof Error ? error.message : '未知错误'}`);
-			}
-		} else if (useTsinghua === '否') {
-			vscode.window.showInformationMessage('将使用默认PyPI源');
-		} else {
-			// 用户取消了选择
-			throw new Error('用户取消了PyPI源配置');
-		}
-	}
-
-	// 步骤4：安装依赖
-	async function installDependencies(workspaceFolder: string): Promise<void> {
-		vscode.window.showInformationMessage('[4/4] 正在安装依赖...');
-		try {
-			// 显示进度提示
-			await vscode.window.withProgress({
-				location: vscode.ProgressLocation.Notification,
-				title: '正在安装FastAPI依赖包...',
-				cancellable: false
-			}, async (progress) => {
-				progress.report({ increment: 0, message: '开始安装依赖...' });
-				await exec('poetry add fastapi[standard] sqlmodel alembic psycopg2-binary asyncpg pydantic_settings', { cwd: workspaceFolder });
-				progress.report({ increment: 100, message: '依赖安装完成' });
-			});
-			vscode.window.showInformationMessage('所有依赖安装完成');
-		} catch (error) {
-			console.error('安装依赖时出错:', error);
-			throw new Error(`安装依赖失败: ${error instanceof Error ? error.message : '未知错误'}`);
-		}
-	}
-
-	// 步骤5：自定义项目设置
+	// 步骤3：自定义项目设置
 	async function customizeProjectSettings(workspaceFolder: string): Promise<void> {
-		vscode.window.showInformationMessage('[5/5] 正在自定义项目设置...');
+		vscode.window.showInformationMessage('[3/5] 正在自定义项目设置...');
 
 		// 获取用户输入的项目名称
 		const projectName = await vscode.window.showInputBox({
@@ -169,13 +124,14 @@ export function activate(context: vscode.ExtensionContext) {
 		const replacements: Record<string, string> = {
 			'${project_name}': projectName.trim(),
 			'${description}': description.trim(),
+			'${secret}': generateSecretKey(),
 		};
 
 		// 调用render_file函数处理settings.py文件
 		const settingsPath = path.join(workspaceFolder, 'core', 'settings.py');
 
 		try {
-			render_file(settingsPath, replacements);
+			renderFile(settingsPath, replacements);
 			vscode.window.showInformationMessage('项目设置自定义完成');
 		} catch (error) {
 			console.error('自定义项目设置时出错:', error);
@@ -183,7 +139,52 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
+	// 步骤4：配置PyPI源
+	async function configurePypiSource(workspaceFolder: string): Promise<void> {
+		vscode.window.showInformationMessage('[4/5] 正在配置PyPI源...');
+		const useTsinghua = await vscode.window.showQuickPick(['是', '否'], {
+			placeHolder: '是否使用清华PyPI源？(推荐中国大陆用户选择是)',
+			canPickMany: false
+		});
 
+		if (useTsinghua === '是') {
+			try {
+				await exec('poetry source add --priority=primary mirrors https://mirrors4.tuna.tsinghua.edu.cn/pypi/web/simple/', { cwd: workspaceFolder });
+				vscode.window.showInformationMessage('清华PyPI源配置完成');
+			} catch (error) {
+				console.error('配置清华PyPI源时出错:', error);
+				throw new Error(`配置清华PyPI源失败: ${error instanceof Error ? error.message : '未知错误'}`);
+			}
+		} else if (useTsinghua === '否') {
+			vscode.window.showInformationMessage('将使用默认PyPI源');
+		} else {
+			// 用户取消了选择
+			throw new Error('用户取消了PyPI源配置');
+		}
+	}
+
+	// 步骤5：安装依赖
+	async function installDependencies(workspaceFolder: string): Promise<void> {
+		vscode.window.showInformationMessage('[5/5] 正在安装依赖...');
+		try {
+			// 显示进度提示
+			await vscode.window.withProgress({
+				location: vscode.ProgressLocation.Notification,
+				title: '正在安装FastAPI依赖包...',
+				cancellable: false
+			}, async (progress) => {
+				progress.report({ increment: 0, message: '开始安装依赖...' });
+				await exec('poetry add fastapi[standard] sqlmodel alembic psycopg2-binary asyncpg pydantic_settings', { cwd: workspaceFolder });
+				progress.report({ increment: 100, message: '依赖安装完成' });
+			});
+			vscode.window.showInformationMessage('所有依赖安装完成');
+		} catch (error) {
+			console.error('安装依赖时出错:', error);
+			throw new Error(`安装依赖失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	}
+
+	
 	context.subscriptions.push(buildFastapiCommand);
 }
 

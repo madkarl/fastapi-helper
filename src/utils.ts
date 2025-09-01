@@ -7,7 +7,7 @@ import * as path from 'path';
  * @param replacements 键值对字典，用于替换文件中的关键字
  * @param outputPath 可选的输出文件路径，如果不提供则覆盖原文件
  */
-export function render_file(filePath: string, replacements: Record<string, string>, outputPath?: string): void {
+export function renderFile(filePath: string, replacements: Record<string, string>, outputPath?: string): void {
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
@@ -50,4 +50,10 @@ export function render_file(filePath: string, replacements: Record<string, strin
  */
 function escapeRegExp(string: string): string {
     return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+export function generateSecretKey() {
+    const array= new Uint8Array(32);
+    crypto.getRandomValues(array);
+    return Array.from(array, b => b.toString(16).padStart(2, '0')).join('');
 }

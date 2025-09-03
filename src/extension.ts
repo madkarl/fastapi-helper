@@ -334,7 +334,7 @@ export function activate(context: vscode.ExtensionContext) {
 					"target_metadata = None": "target_metadata = SQLModel.metadata"
 				};
 				renderFile(envPyPath, metaConfig);
-				appendToFile(envPyPath, "from alembic import context", "from sqlmodel import SQLModel\nfrom schema import *\n");
+				appendToFile(envPyPath, "from alembic import context", "from sqlmodel import SQLModel\n### auto generate start ###\n# ...\n### auto generate end ###\n");
 			} catch (error) {
 				console.error('FastAPI Helper: 更新env.py时出错:', error);
 				throw new Error(`更新env.py失败: ${error instanceof Error ? error.message : '未知错误'}`);

@@ -31,7 +31,7 @@ function New-SourcePackage {
     Write-StatusMessage 'Starting source code packaging'
     
     # Create exclusion list
-    $excludeList = @('.venv', '.vscode', '.env', 'pyproject.toml', 'poetry.lock')
+    $excludeList = @('.venv', '.env', 'alembic', 'alembic.ini', 'pyproject.toml', 'poetry.lock')
     $tempDir = $null
 
     try {
@@ -48,8 +48,8 @@ function New-SourcePackage {
             Where-Object { 
                 -not ($excludeList -contains $_.Name) -and 
                 $_.FullName -notmatch '\\__pycache__\\|\\__pycache__$' -and
-                $_.FullName -notmatch '\\.venv\\|\\.venv$'  -and
-                $_.FullName -notmatch '\\.vscode\\|\\.vscode$' 
+                $_.FullName -notmatch '\\alembic\\|\\alembic$' -and
+                $_.FullName -notmatch '\\.venv\\|\\.venv$'
             } | 
             ForEach-Object {
                 $relativePath = $_.FullName.Substring($sourceDir.Length + 1)

@@ -128,7 +128,7 @@ export function activate(context: vscode.ExtensionContext) {
 		};
 
 		// 调用render_file函数处理settings.py文件
-		const settingsPath = path.join(workspaceFolder, 'core', 'settings.py');
+		const settingsPath = path.join(workspaceFolder, 'src', 'core', 'settings.py');
 
 		try {
 			renderFile(settingsPath, replacements);
@@ -279,7 +279,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 	// 步骤2：更新core/settings.py
 	async function updateCoreSettings(workspaceFolder: string, dbConfig: Record<string, string>): Promise<void> {
-		const settingsPath = path.join(workspaceFolder, 'core', 'settings.py');
+		const settingsPath = path.join(workspaceFolder, 'src', 'core', 'settings.py');
 		if (fs.existsSync(settingsPath)) {
 			try {
 				renderFile(settingsPath, dbConfig);

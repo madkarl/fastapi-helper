@@ -17,7 +17,8 @@
   },
   "activationEvents": [
     "onCommand:fastapi-helper.createProject",
-    "onCommand:fastapi-helper.initializeDatabase"
+    "onCommand:fastapi-helper.initializeDatabase",
+    "onCommand:fastapi-helper.createModule"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -30,6 +31,11 @@
       {
         "command": "fastapi-helper.initializeDatabase",
         "title": "Initialize Database",
+        "category": "FastAPI Helper"
+      },
+      {
+        "command": "fastapi-helper.createModule",
+        "title": "Create Module",
         "category": "FastAPI Helper"
       }
     ],
@@ -47,6 +53,10 @@
         },
         {
           "command": "fastapi-helper.initializeDatabase",
+          "group": "fastapi-helper"
+        },
+        {
+          "command": "fastapi-helper.createModule",
           "group": "fastapi-helper"
         }
       ]

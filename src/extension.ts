@@ -184,6 +184,68 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
+	// 注册Create Module命令
+	const createModuleCommand = vscode.commands.registerCommand('fastapi-helper.createModule', async (uri: vscode.Uri) => {
+		try {
+			// 获取工作区文件夹
+			const workspaceFolder = getWorkspaceFolder();
+			if (!workspaceFolder) {
+				return;
+			}
+
+			// 验证zip文件存在
+			const moduleZipPath = path.join(context.extensionPath, 'assets', 'module.zip');
+			if (!fs.existsSync(moduleZipPath)) {
+				vscode.window.showErrorMessage(`在${moduleZipPath}未找到module.zip文件`);
+				return;
+			}
+
+			// 获取用户输入的模块名称
+			const moduleName = await vscode.window.showInputBox({
+				prompt: '请输入模块名称',
+				placeHolder: '例如: user, product, order',
+				validateInput: (value) => {
+					if (!value || value.trim().length === 0) {
+						return '模块名称不能为空';
+					}
+					if (!/^[a-z][a-z0-9_]*$/.test(value)) {
+						return '模块名称必须以小写字母开头，只能包含小写字母、数字和下划线';
+					}
+					return null;
+				}
+			});
+
+			if (!moduleName) {
+				throw new Error('用户取消了模块名称输入');
+			}
+
+			// 创建模块目录
+			const moduleDir = path.join(workspaceFolder, 'src', moduleName);
+			if (fs.existsSync(moduleDir)) {
+				const overwrite = await vscode.window.showQuickPick(['是', '否'], {
+					placeHolder: `模块 ${moduleName} 已存在，是否覆盖？`,
+					canPickMany: false
+				});
+
+				if (overwrite !== '是') {
+					vscode.window.showInformationMessage('已取消创建模块');
+					return;
+				}
+			}
+
+			// 解压模块模板
+			await extractModuleTemplate(moduleZipPath, workspaceFolder, moduleName);
+
+			// 更新模块模板
+			await updateModuleTemplate(workspaceFolder, moduleName);
+
+			vscode.window.showInformationMessage(`模块 ${moduleName} 已成功创建！`);
+		} catch (error) {
+			console.error('创建模块时出错:', error);
+			vscode.window.showErrorMessage(`创建模块失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	});
+
 	// 注册Initialize Database命令
 	const initializeDatabaseCommand = vscode.commands.registerCommand('fastapi-helper.initializeDatabase', async (uri: vscode.Uri) => {
 		try {
@@ -344,7 +406,82 @@ export function activate(context: vscode.ExtensionContext) {
 		}
 	}
 
-	context.subscriptions.push(buildFastapiCommand, initializeDatabaseCommand);
+	// 更新模块模板，替换关键字
+	async function updateModuleTemplate(workspaceFolder: string, moduleName: string): Promise<void> {
+		try {
+			// 创建一个字典，将key"${prefix}"和"${tag}"赋值
+			const replacements: Record<string, string> = {
+				'${prefix}': moduleName,
+				'${tag}': moduleName
+			};
+
+			// 渲染新建模块下的router.py文件
+			const routerPath = path.join(workspaceFolder, 'src', moduleName, 'router.py');
+			if (fs.existsSync(routerPath)) {
+				renderFile(routerPath, replacements);
+			} else {
+				console.error(`router.py文件不存在: ${routerPath}`);
+			}
+		} catch (error) {
+			console.error('更新模块模板时出错:', error);
+			throw new Error(`更新模块模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	}
+
+	// 解压模块模板并重命名
+	async function extractModuleTemplate(zipPath: string, workspaceFolder: string, moduleName: string): Promise<void> {
+		try {
+			// 创建临时目录
+			const tempDir = path.join(workspaceFolder, '.temp_module');
+			if (fs.existsSync(tempDir)) {
+				fs.rmSync(tempDir, { recursive: true, force: true });
+			}
+			fs.mkdirSync(tempDir, { recursive: true });
+
+			// 解压模块模板到临时目录
+			const zip = new AdmZip(zipPath);
+			zip.extractAllTo(tempDir, true);
+
+			// 确保src目录存在
+			const srcDir = path.join(workspaceFolder, 'src');
+			if (!fs.existsSync(srcDir)) {
+				fs.mkdirSync(srcDir, { recursive: true });
+			}
+
+			// 创建模块目录
+			const moduleDir = path.join(srcDir, moduleName);
+			if (fs.existsSync(moduleDir)) {
+				fs.rmSync(moduleDir, { recursive: true, force: true });
+			}
+			fs.mkdirSync(moduleDir, { recursive: true });
+
+			// 复制并重命名模块文件
+			const moduleTemplateDir = path.join(tempDir, 'module');
+			if (fs.existsSync(moduleTemplateDir)) {
+				const files = fs.readdirSync(moduleTemplateDir);
+				for (const file of files) {
+					const srcFile = path.join(moduleTemplateDir, file);
+					const destFile = path.join(moduleDir, file);
+					fs.copyFileSync(srcFile, destFile);
+
+					// 替换文件内容中的模块名称
+					if (file.endsWith('.py')) {
+						let content = fs.readFileSync(destFile, 'utf8');
+						content = content.replace(/module/g, moduleName);
+						fs.writeFileSync(destFile, content, 'utf8');
+					}
+				}
+			}
+
+			// 清理临时目录
+			fs.rmSync(tempDir, { recursive: true, force: true });
+		} catch (error) {
+			console.error('解压模块模板时出错:', error);
+			throw new Error(`解压模块模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
+		}
+	}
+
+	context.subscriptions.push(buildFastapiCommand, initializeDatabaseCommand, createModuleCommand);
 }
 
 // 当扩展被停用时会调用此方法

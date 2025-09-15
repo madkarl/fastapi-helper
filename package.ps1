@@ -27,6 +27,70 @@ function Initialize-PackageEnvironment {
     }
 }
 
+function New-ModulePackage {
+    Write-StatusMessage 'Starting module packaging'
+    
+    $moduleDir = Join-Path $sourceDir 'src\module'
+    $moduleZip = '.\assets\module.zip'
+    $tempDir = $null
+    
+    # Check if module directory exists
+    if (-not (Test-Path $moduleDir)) {
+        Write-Host 'Module directory not found, skipping module packaging' -ForegroundColor Yellow
+        return
+    }
+    
+    # Delete target module zip file if it already exists
+    if (Test-Path $moduleZip) {
+        Remove-Item $moduleZip -Force
+        Write-Host 'Removed existing module zip file' -ForegroundColor Gray
+    }
+    
+    try {
+        # Import required .NET assembly
+        Add-Type -AssemblyName System.IO.Compression.FileSystem
+        
+        # Create temporary directory
+        $tempDir = Join-Path $env:TEMP ([Guid]::NewGuid().ToString())
+        New-Item -ItemType Directory -Path $tempDir | Out-Null
+        Write-Host 'Created temporary directory for module packaging' -ForegroundColor Gray
+        
+        # Copy module files to be packaged to temporary directory
+        Get-ChildItem -Path $moduleDir -Recurse | 
+            Where-Object { 
+                $_.FullName -notmatch '\\__pycache__\\|\\__pycache__$'
+            } | 
+            ForEach-Object {
+                $relativePath = $_.FullName.Substring($moduleDir.Length + 1)
+                $targetPath = Join-Path $tempDir $relativePath
+                $targetDir = Split-Path $targetPath -Parent
+                
+                if (-not (Test-Path $targetDir)) {
+                    New-Item -ItemType Directory -Path $targetDir -Force | Out-Null
+                }
+                Copy-Item -Path $_.FullName -Destination $targetPath -Force
+            }
+        
+        # Create module zip file
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $moduleZip)
+        
+        # Display success message and file size
+        $zipSize = (Get-Item $moduleZip).Length / 1KB
+        Write-Host "Module packaging successful! File saved to: $moduleZip" -ForegroundColor Green
+        Write-Host "Module package size: $($zipSize.ToString('0.00')) KB" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "Module packaging failed: $_" -ForegroundColor Red
+        throw
+    } finally {
+        # Clean up temporary directory
+        if ($tempDir -and (Test-Path $tempDir)) {
+            Remove-Item $tempDir -Recurse -Force
+            Write-Host 'Cleaned up temporary directory' -ForegroundColor Gray
+        }
+    }
+}
+
 function New-SourcePackage {
     Write-StatusMessage 'Starting source code packaging'
     
@@ -49,7 +113,8 @@ function New-SourcePackage {
                 -not ($excludeList -contains $_.Name) -and 
                 $_.FullName -notmatch '\\__pycache__\\|\\__pycache__$' -and
                 $_.FullName -notmatch '\\alembic\\|\\alembic$' -and
-                $_.FullName -notmatch '\\.venv\\|\\.venv$'
+                $_.FullName -notmatch '\\.venv\\|\\.venv$' -and
+                $_.FullName -notmatch '\\src\\module\\|\\src\\module$'
             } | 
             ForEach-Object {
                 $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
@@ -109,6 +174,7 @@ function New-VsixPackage {
 try {
     Initialize-PackageEnvironment
     New-SourcePackage
+    New-ModulePackage
     New-VsixPackage
     Write-StatusMessage 'All packaging operations completed successfully!' 'Green'
 } catch {

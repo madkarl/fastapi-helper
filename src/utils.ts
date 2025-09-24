@@ -1,5 +1,18 @@
 import * as fs from 'fs';
 import * as path from 'path';
+import * as vscode from 'vscode';
+
+// 辅助函数：获取工作区文件夹
+export function getWorkspaceFolder(): string | undefined {
+    if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
+        const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
+        console.log(`工作区根目录: ${workspaceFolder}`);
+        return workspaceFolder;
+    } else {
+        vscode.window.showErrorMessage('未找到工作区文件夹。请先在VS Code中打开一个文件夹。');
+        return undefined;
+    }
+}
 
 /**
  * 渲染文件函数 - 根据键值对映射关系替换文件中的关键字
@@ -35,11 +48,8 @@ export function renderFile(filePath: string, replacements: Record<string, string
 
         // 写入文件
         fs.writeFileSync(targetPath, content, 'utf-8');
-
-        console.log(`文件渲染完成: ${targetPath}`);
     } catch (error) {
-        console.error('文件渲染失败:', error);
-        throw error;
+        throw Error(`文件渲染失败: ${error instanceof Error ? error.message : '未知错误'}`);;
     }
 }
 
@@ -65,7 +75,7 @@ export function generateSecretKey() {
  * @param appendText 待追加的字符串（可能是多行）
  * @param outputPath 文件输出路径，如果为空则输出到原文件位置
  */
-export function appendToFile(filePath: string, appendTag: string, appendText: string, outputPath?: string): void {
+export function replaceFileByTag(filePath: string, appendTag: string, appendText: string, outputPath?: string): void {
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
@@ -109,6 +119,48 @@ export function appendToFile(filePath: string, appendTag: string, appendText: st
         fs.writeFileSync(targetPath, newContent, 'utf-8');
 
         console.log(`文件追加完成: ${targetPath}`);
+    } catch (error) {
+        console.error('文件追加失败:', error);
+        throw error;
+    }
+}
+
+export function validZipExist(context: vscode.ExtensionContext, zipName: string): string {
+    const zipPath = path.join(context.extensionPath, 'assets', 'project_template.zip');
+    if (!fs.existsSync(zipPath)) {
+        return '';
+    }
+    return zipPath;
+}
+
+export function appendToFile(filePath: string, appendText: string, outputPath?: string): void {
+    try {
+        // 检查文件是否存在
+        if (!fs.existsSync(filePath)) {
+            throw new Error(`文件不存在: ${filePath}`);
+        }
+
+        // 读取文件内容
+        let content = fs.readFileSync(filePath, 'utf-8');
+
+        // 在文件末尾追加内容
+        // 如果文件不以换行符结尾，先添加一个换行符
+        if (content.length > 0 && !content.endsWith('\n')) {
+            content += '\n';
+        }
+        content += appendText;
+
+        // 确定输出路径
+        const targetPath = outputPath || filePath;
+
+        // 确保输出目录存在
+        const outputDir = path.dirname(targetPath);
+        if (!fs.existsSync(outputDir)) {
+            fs.mkdirSync(outputDir, { recursive: true });
+        }
+
+        // 写入文件
+        fs.writeFileSync(targetPath, content, 'utf-8');
     } catch (error) {
         console.error('文件追加失败:', error);
         throw error;

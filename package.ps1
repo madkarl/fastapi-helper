@@ -1,8 +1,10 @@
 # Script for packaging both source code and VSIX
 
 # Define source directory and target zip file path
-$sourceDir = 'E:\Projects\python\fastapi_basic_project'
-$targetZip = '.\assets\fastapi.zip'
+$projectDir = 'E:\Projects\python\fastapi_basic_project'
+$projectZip = '.\assets\project_template.zip'
+$moduleDir = Join-Path $projectDir 'src\module'
+$moduleZip = '.\assets\module_template.zip'
 $ErrorActionPreference = 'Stop'
 
 function Write-StatusMessage {
@@ -21,8 +23,8 @@ function Initialize-PackageEnvironment {
     }
 
     # Delete target zip file if it already exists
-    if (Test-Path $targetZip) {
-        Remove-Item $targetZip -Force
+    if (Test-Path $projectZip) {
+        Remove-Item $projectZip -Force
         Write-Host 'Removed existing zip file' -ForegroundColor Gray
     }
 }
@@ -30,8 +32,6 @@ function Initialize-PackageEnvironment {
 function New-ModulePackage {
     Write-StatusMessage 'Starting module packaging'
     
-    $moduleDir = Join-Path $sourceDir 'src\module'
-    $moduleZip = '.\assets\module.zip'
     $tempDir = $null
     
     # Check if module directory exists
@@ -108,7 +108,7 @@ function New-SourcePackage {
         Write-Host 'Created temporary directory for packaging' -ForegroundColor Gray
         
         # Copy files to be packaged to temporary directory
-        Get-ChildItem -Path $sourceDir -Recurse | 
+        Get-ChildItem -Path $projectDir -Recurse | 
             Where-Object { 
                 -not ($excludeList -contains $_.Name) -and 
                 $_.FullName -notmatch '\\__pycache__\\|\\__pycache__$' -and
@@ -117,7 +117,7 @@ function New-SourcePackage {
                 $_.FullName -notmatch '\\src\\module\\|\\src\\module$'
             } | 
             ForEach-Object {
-                $relativePath = $_.FullName.Substring($sourceDir.Length + 1)
+                $relativePath = $_.FullName.Substring($projectDir.Length + 1)
                 $targetPath = Join-Path $tempDir $relativePath
                 $targetDir = Split-Path $targetPath -Parent
                 
@@ -128,11 +128,11 @@ function New-SourcePackage {
             }
         
         # Create zip file
-        [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $targetZip)
+        [System.IO.Compression.ZipFile]::CreateFromDirectory($tempDir, $projectZip)
         
         # Display success message and file size
-        $zipSize = (Get-Item $targetZip).Length / 1MB
-        Write-Host "Source code packaging successful! File saved to: $targetZip" -ForegroundColor Green
+        $zipSize = (Get-Item $projectZip).Length / 1MB
+        Write-Host "Source code packaging successful! File saved to: $projectZip" -ForegroundColor Green
         Write-Host "Package size: $($zipSize.ToString('0.00')) MB" -ForegroundColor Green
         
     } catch {

@@ -81,7 +81,7 @@ export async function initializeAlembic(workspaceFolder: string): Promise<void> 
 
         await execAsync(`${toolName} run alembic init alembic -t async`, { cwd: workspaceFolder });
     } catch (error) {
-        throw new Error(`初始化alembic失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`初始化alembic失败: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -91,7 +91,7 @@ export async function updateCoreSettings(workspaceFolder: string, dbConfig: Reco
         try {
             renderFile(settingsPath, dbConfig);
         } catch (error) {
-            throw new Error(`更新settings.py失败: ${error instanceof Error ? error.message : '未知错误'}`);
+            throw new Error(`更新settings.py失败: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
     } else {
         throw new Error('更新settings.py失败: 文件不存在');
@@ -107,7 +107,7 @@ export async function updateAlembicIni(workspaceFolder: string, dbConfig: Record
         try {
             renderFile(alembicIniPath, uriConfig);
         } catch (error) {
-            throw new Error(`更新alembic.ini失败: ${error instanceof Error ? error.message : '未知错误'}`);
+            throw new Error(`更新alembic.ini失败: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
     } else {
         throw new Error('更新alembic.ini失败: 文件不存在');
@@ -120,7 +120,7 @@ export async function updateScriptPyMako(workspaceFolder: string): Promise<void>
         try {
             replaceFileByTag(scriptPyMakoPath, "import sqlalchemy as sa", "import sqlmodel.sql.sqltypes");
         } catch (error) {
-            throw new Error(`更新script.py.mako失败: ${error instanceof Error ? error.message : '未知错误'}`);
+            throw new Error(`更新script.py.mako失败: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
     } else {
         throw new Error('更新script.py.mako失败: 文件不存在');
@@ -137,7 +137,7 @@ export async function updateAlembicEnv(workspaceFolder: string): Promise<void> {
             renderFile(envPyPath, metaConfig);
             replaceFileByTag(envPyPath, "from alembic import context", "from sqlmodel import SQLModel\n### auto generate start ###\n# ...\n### auto generate end ###\n");
         } catch (error) {
-            throw new Error(`更新alembic/env.py失败: ${error instanceof Error ? error.message : '未知错误'}`);
+            throw new Error(`更新alembic/env.py失败: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
     } else {
         throw new Error('更新alembic/env.py失败: 文件不存在');

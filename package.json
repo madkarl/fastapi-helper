@@ -18,7 +18,9 @@
   "activationEvents": [
     "onCommand:fastapi-helper.createProject",
     "onCommand:fastapi-helper.initializeDatabase",
-    "onCommand:fastapi-helper.createModule"
+    "onCommand:fastapi-helper.createModule",
+    "onCommand:fastapi-helper.generateSchema",
+    "onCommand:fastapi-helper.generateRouter"
   ],
   "main": "./dist/extension.js",
   "contributes": {
@@ -37,12 +39,29 @@
         "command": "fastapi-helper.createModule",
         "title": "Create Module",
         "category": "FastAPI Helper"
+      },
+      {
+        "command": "fastapi-helper.generateSchema",
+        "title": "Generate Schema",
+        "category": "FastAPI Helper"
+      },
+      {
+        "command": "fastapi-helper.generateRouter",
+        "title": "Generate Router",
+        "category": "FastAPI Helper"
       }
     ],
     "menus": {
       "explorer/context": [
         {
           "submenu": "fastapi-helper.submenu",
+          "group": "fastapi-helper"
+        }
+      ],
+      "editor/context": [
+        {
+          "submenu": "fastapi-helper.editor-submenu",
+          "when": "resourceLangId == python",
           "group": "fastapi-helper"
         }
       ],
@@ -59,11 +78,25 @@
           "command": "fastapi-helper.createModule",
           "group": "2_module"
         }
+      ],
+      "fastapi-helper.editor-submenu": [
+        {
+          "command": "fastapi-helper.generateSchema",
+          "group": "1_generate"
+        },
+        {
+          "command": "fastapi-helper.generateRouter",
+          "group": "1_generate"
+        }
       ]
     },
     "submenus": [
       {
         "id": "fastapi-helper.submenu",
+        "label": "FastAPI Helper"
+      },
+      {
+        "id": "fastapi-helper.editor-submenu",
         "label": "FastAPI Helper"
       }
     ]

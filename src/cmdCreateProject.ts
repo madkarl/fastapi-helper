@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import { generateSecretKey, renderFile, appendToFile, extractTemplate } from './utils';
+import { generateSecretKey, renderFile, appendToFile } from './utils';
 
 const execAsync = promisify(exec);
 
@@ -16,7 +16,7 @@ export async function initializeProject(workspaceFolder: string, initTool: strin
         }
         await exec(command, { cwd: workspaceFolder });
     } catch (error) {
-        throw new Error(`调用${initTool}初始化项目出错: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`调用${initTool}初始化项目出错: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -61,7 +61,7 @@ export async function customizeProjectSettings(workspaceFolder: string): Promise
     try {
         renderFile(path.join(workspaceFolder, 'src', 'core', 'settings.py'), replacements);
     } catch (error) {
-        throw new Error(`自定义项目设置失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`自定义项目设置失败: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -85,7 +85,7 @@ export async function configurePypiSource(workspaceFolder: string, projectInitTo
 
         appendToFile(path.join(workspaceFolder, 'pyproject.toml'), sourceConfig);
     } catch (error) {
-        throw new Error(`配置${projectInitTool}清华PyPI源失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`配置${projectInitTool}清华PyPI源失败: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -94,6 +94,6 @@ export async function installDependencies(workspaceFolder: string, projectInitTo
         // 显示进度提示
         await execAsync(`${projectInitTool} add fastapi[standard] sqlmodel alembic psycopg2-binary asyncpg pydantic_settings PyJWT bcrypt passlib[bcrypt]`, { cwd: workspaceFolder });
     } catch (error) {
-        throw new Error(`安装依赖失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`安装依赖失败: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }

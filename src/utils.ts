@@ -9,7 +9,7 @@ export function getWorkspaceFolder(): string {
         const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
         return workspaceFolder;
     } else {
-        throw Error('未找到工作区文件夹。请先在VS Code中打开一个文件夹。');
+        throw Error('workspace folder not found. please open a folder in vscode first.');
     }
 }
 
@@ -23,7 +23,7 @@ export function renderFile(filePath: string, replacements: Record<string, string
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
-            throw new Error(`文件不存在: ${filePath}`);
+            throw new Error(`file not exist: ${filePath}`);
         }
 
         // 读取文件内容
@@ -48,7 +48,7 @@ export function renderFile(filePath: string, replacements: Record<string, string
         // 写入文件
         fs.writeFileSync(targetPath, content, 'utf-8');
     } catch (error) {
-        throw Error(`文件渲染失败: ${error instanceof Error ? error.message : '未知错误'}`);;
+        throw Error(`render file failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -78,7 +78,7 @@ export function replaceFileByTag(filePath: string, appendTag: string, appendText
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
-            throw new Error(`文件不存在: ${filePath}`);
+            throw new Error(`file not exist: ${filePath}`);
         }
 
         // 读取文件内容
@@ -95,7 +95,7 @@ export function replaceFileByTag(filePath: string, appendTag: string, appendText
         }
 
         if (targetLineIndex === -1) {
-            throw new Error(`未找到标志字符串: ${appendTag}`);
+            throw new Error(`tag not found: ${appendTag}`);
         }
 
         // 在标志字符串的下一行插入新内容
@@ -117,14 +117,14 @@ export function replaceFileByTag(filePath: string, appendTag: string, appendText
         // 写入文件
         fs.writeFileSync(targetPath, newContent, 'utf-8');
     } catch (error) {
-        throw Error(`文件追加失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw Error(`replace failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
 export function validZipExist(context: vscode.ExtensionContext, zipName: string): string {
     const zipPath = path.join(context.extensionPath, 'assets', zipName);
     if (!fs.existsSync(zipPath)) {
-        throw Error(`无法找到${zipName}`);
+        throw Error(`file not exist: ${zipName}`);
     }
     return zipPath;
 }
@@ -133,7 +133,7 @@ export function appendToFile(filePath: string, appendText: string, outputPath?: 
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
-            throw new Error(`文件不存在 ${filePath}`);
+            throw new Error(`file not exist: ${filePath}`);
         }
 
         // 读取文件内容
@@ -158,8 +158,29 @@ export function appendToFile(filePath: string, appendText: string, outputPath?: 
         // 写入文件
         fs.writeFileSync(targetPath, content, 'utf-8');
     } catch (error) {
-        console.error('文件追加失败:', error);
-        throw error;
+        throw Error(`append content to file failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+}
+
+/**
+ * 将对应的schema模板内容追加到当前schema.py文件
+ */
+export function appendFromTemplateFile(context: vscode.ExtensionContext, templateFileName: string, schemaFilePath: string) {
+    try {
+        const sourceFile = path.join(context.extensionPath, 'assets', templateFileName);
+
+        if (!fs.existsSync(sourceFile)) {
+            throw new Error(`template file not exist: ${sourceFile}`);
+        }
+
+        // 读取模板内容
+        const templateContent = fs.readFileSync(sourceFile, 'utf8');
+
+        // 追加到schema.py文件
+        appendToFile(schemaFilePath, '\n' + templateContent);
+
+    } catch (error) {
+        throw new Error(`append template content failed: ${error instanceof Error ? error.message : 'unknown error'}`);
     }
 }
 
@@ -172,6 +193,16 @@ export async function extractTemplate(context: vscode.ExtensionContext, zipName:
         }
         zip.extractAllTo(targetDir, true);
     } catch (error) {
-        throw new Error(`解压模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
+        throw new Error(`extract template failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+    }
+}
+
+/**
+ * 验证当前文件名
+ */
+export function validateFileName(uri: vscode.Uri, name: string): void {
+    const fileName = path.basename(uri.fsPath);
+    if (fileName !== name) {
+        throw new Error(`current file is not ${name}`);
     }
 }

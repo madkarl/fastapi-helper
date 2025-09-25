@@ -3,7 +3,7 @@
 # Define source directory and target zip file path
 $projectDir = 'E:\Projects\python\fastapi_basic_project'
 $projectZip = '.\assets\project_template.zip'
-$moduleDir = Join-Path $projectDir 'src\module'
+$moduleDir = Join-Path $projectDir 'template\module'
 $moduleZip = '.\assets\module_template.zip'
 $ErrorActionPreference = 'Stop'
 
@@ -114,7 +114,7 @@ function New-SourcePackage {
                 $_.FullName -notmatch '\\__pycache__\\|\\__pycache__$' -and
                 $_.FullName -notmatch '\\alembic\\|\\alembic$' -and
                 $_.FullName -notmatch '\\.venv\\|\\.venv$' -and
-                $_.FullName -notmatch '\\src\\module\\|\\src\\module$'
+                $_.FullName -notmatch '\\template\\|\\template$'
             } | 
             ForEach-Object {
                 $relativePath = $_.FullName.Substring($projectDir.Length + 1)
@@ -147,6 +147,49 @@ function New-SourcePackage {
     }
 }
 
+function Copy-TemplateFiles {
+    Write-StatusMessage 'Starting template files copying'
+    
+    $templateDir = Join-Path $projectDir 'template'
+    $targetFiles = @('router.py', 'schema.py')
+    
+    # Check if template directory exists
+    if (-not (Test-Path $templateDir)) {
+        Write-Host 'Template directory not found, skipping template files copying' -ForegroundColor Yellow
+        return
+    }
+    
+    try {
+        $copiedCount = 0
+        
+        foreach ($fileName in $targetFiles) {
+            $sourceFile = Join-Path $templateDir $fileName
+            $targetFile = Join-Path '.\assets' $fileName
+            
+            if (Test-Path $sourceFile) {
+                # Remove existing file if it exists
+                if (Test-Path $targetFile) {
+                    Remove-Item $targetFile -Force
+                    Write-Host "Removed existing file: $fileName" -ForegroundColor Gray
+                }
+                
+                # Copy file to assets directory
+                Copy-Item -Path $sourceFile -Destination $targetFile -Force
+                Write-Host "Copied $fileName to assets directory" -ForegroundColor Green
+                $copiedCount++
+            } else {
+                Write-Host "Source file not found: $fileName" -ForegroundColor Yellow
+            }
+        }
+        
+        Write-Host "Template files copying completed! Copied $copiedCount files" -ForegroundColor Green
+        
+    } catch {
+        Write-Host "Template files copying failed: $_" -ForegroundColor Red
+        throw
+    }
+}
+
 function New-VsixPackage {
     Write-StatusMessage 'Starting VSIX packaging'
     
@@ -175,6 +218,7 @@ try {
     Initialize-PackageEnvironment
     New-SourcePackage
     New-ModulePackage
+    Copy-TemplateFiles
     New-VsixPackage
     Write-StatusMessage 'All packaging operations completed successfully!' 'Green'
 } catch {

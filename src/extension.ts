@@ -2,13 +2,11 @@
 // 导入模块并使用别名vscode在代码中引用
 import * as vscode from 'vscode';
 import * as path from 'path';
-import * as fs from 'fs';
-import AdmZip from 'adm-zip';
-import { getWorkspaceFolder, validZipExist, renderFile, extractTemplate } from './utils';
+import { getWorkspaceFolder, extractTemplate, appendFromTemplateFile, renderFile, validateFileName } from './utils';
 import { initializeProject, customizeProjectSettings, configurePypiSource, installDependencies as installDependencies } from './cmdCreateProject';
 import { getDatabaseConfig, initializeAlembic, updateCoreSettings, updateAlembicIni, updateAlembicEnv, updateScriptPyMako } from './cmdInitializeDatabase';
 import { getModuleName, updateModuleTemplate } from './cmdCreateModule';
-
+import { getIdType, getSchemaPrefix, updateSchemaFile } from './cmdGenerateSchema';
 
 
 // 当扩展被激活时会调用此方法
@@ -44,7 +42,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			vscode.window.showInformationMessage(`项目初始化完成！`);
 		} catch (error) {
-			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : '未知错误'}`);
+			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : 'unknown error'}`);
 		}
 	});
 
@@ -71,7 +69,7 @@ export function activate(context: vscode.ExtensionContext) {
 
 			vscode.window.showInformationMessage('数据库初始化完成！');
 		} catch (error) {
-			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : '未知错误'}`);
+			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : 'unknown error'}`);
 		}
 	});
 
@@ -89,11 +87,41 @@ export function activate(context: vscode.ExtensionContext) {
 
 			vscode.window.showInformationMessage(`模块已成功创建!`);
 		} catch (error) {
-			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : '未知错误'}`);
+			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : 'unknown error'}`);
 		}
 	});
 
-	context.subscriptions.push(buildFastapiCommand, initializeDatabaseCommand, createModuleCommand);
+	// 注册Generate Schema命令
+	const generateSchemaCommand = vscode.commands.registerCommand('fastapi-helper.generateSchema', async (uri: vscode.Uri) => {
+		try {
+			validateFileName(uri, 'schema.py');
+			const idType = await getIdType();
+			const schemaPrefix = await getSchemaPrefix();
+
+			appendFromTemplateFile(context, 'schema.py', uri.fsPath);
+			updateSchemaFile(uri.fsPath, idType, schemaPrefix);
+
+			vscode.window.showInformationMessage(`Generate successfully!`);
+		} catch (error) {
+			vscode.window.showErrorMessage(`${error instanceof Error ? error.message : 'unknown error'}`);
+		}
+	});
+
+	// 注册Generate Router命令
+	const generateRouterCommand = vscode.commands.registerCommand('fastapi-helper.generateRouter', async (uri: vscode.Uri) => {
+		try {
+			const filePath = uri ? uri.fsPath : vscode.window.activeTextEditor?.document.fileName;
+			if (filePath) {
+				vscode.window.showInformationMessage(`当前文件路径2: ${filePath}`);
+			} else {
+				vscode.window.showErrorMessage('无法获取当前文件路径');
+			}
+		} catch (error) {
+			vscode.window.showErrorMessage(`Generate router failed: ${error instanceof Error ? error.message : 'unknown error'}`);
+		}
+	});
+
+	context.subscriptions.push(buildFastapiCommand, initializeDatabaseCommand, createModuleCommand, generateSchemaCommand, generateRouterCommand);
 }
 
 // 当扩展被停用时会调用此方法

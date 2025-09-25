@@ -2,8 +2,7 @@ import * as vscode from 'vscode';
 import * as path from 'path';
 import { exec } from 'child_process';
 import { promisify } from 'util';
-import AdmZip from 'adm-zip';
-import { generateSecretKey, renderFile, appendToFile } from './utils';
+import { generateSecretKey, renderFile, appendToFile, extractTemplate } from './utils';
 
 const execAsync = promisify(exec);
 
@@ -18,15 +17,6 @@ export async function initializeProject(workspaceFolder: string, initTool: strin
         await exec(command, { cwd: workspaceFolder });
     } catch (error) {
         throw new Error(`调用${initTool}初始化项目出错: ${error instanceof Error ? error.message : '未知错误'}`);
-    }
-}
-
-export async function extractFastapiTemplate(zipPath: string, workspaceFolder: string): Promise<void> {
-    try {
-        const zip = new AdmZip(zipPath);
-        zip.extractAllTo(workspaceFolder, true);
-    } catch (error) {
-        throw new Error(`解压FastAPI项目模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 }
 
@@ -76,7 +66,7 @@ export async function customizeProjectSettings(workspaceFolder: string): Promise
 }
 
 export async function configurePypiSource(workspaceFolder: string, projectInitTool: string): Promise<void> {
-    const useTsinghua = await vscode.window.showQuickPick(['是', '否'], {
+    const useTsinghua = await vscode.window.showQuickPick(['否', '是'], {
         placeHolder: '是否使用清华PyPI源？',
         canPickMany: false
     });

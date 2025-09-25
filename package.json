@@ -49,15 +49,15 @@
       "fastapi-helper.submenu": [
         {
           "command": "fastapi-helper.createProject",
-          "group": "fastapi-helper"
+          "group": "1_project"
         },
         {
           "command": "fastapi-helper.initializeDatabase",
-          "group": "fastapi-helper"
+          "group": "1_project"
         },
         {
           "command": "fastapi-helper.createModule",
-          "group": "fastapi-helper"
+          "group": "2_module"
         }
       ]
     },

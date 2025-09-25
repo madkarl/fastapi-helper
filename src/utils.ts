@@ -1,16 +1,15 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as vscode from 'vscode';
+import AdmZip from 'adm-zip';
 
 // 辅助函数：获取工作区文件夹
-export function getWorkspaceFolder(): string | undefined {
+export function getWorkspaceFolder(): string {
     if (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders.length > 0) {
         const workspaceFolder = vscode.workspace.workspaceFolders[0].uri.fsPath;
-        console.log(`工作区根目录: ${workspaceFolder}`);
         return workspaceFolder;
     } else {
-        vscode.window.showErrorMessage('未找到工作区文件夹。请先在VS Code中打开一个文件夹。');
-        return undefined;
+        throw Error('未找到工作区文件夹。请先在VS Code中打开一个文件夹。');
     }
 }
 
@@ -117,18 +116,15 @@ export function replaceFileByTag(filePath: string, appendTag: string, appendText
 
         // 写入文件
         fs.writeFileSync(targetPath, newContent, 'utf-8');
-
-        console.log(`文件追加完成: ${targetPath}`);
     } catch (error) {
-        console.error('文件追加失败:', error);
-        throw error;
+        throw Error(`文件追加失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 }
 
 export function validZipExist(context: vscode.ExtensionContext, zipName: string): string {
-    const zipPath = path.join(context.extensionPath, 'assets', 'project_template.zip');
+    const zipPath = path.join(context.extensionPath, 'assets', zipName);
     if (!fs.existsSync(zipPath)) {
-        return '';
+        throw Error(`无法找到${zipName}`);
     }
     return zipPath;
 }
@@ -137,7 +133,7 @@ export function appendToFile(filePath: string, appendText: string, outputPath?: 
     try {
         // 检查文件是否存在
         if (!fs.existsSync(filePath)) {
-            throw new Error(`文件不存在: ${filePath}`);
+            throw new Error(`文件不存在 ${filePath}`);
         }
 
         // 读取文件内容
@@ -164,5 +160,18 @@ export function appendToFile(filePath: string, appendText: string, outputPath?: 
     } catch (error) {
         console.error('文件追加失败:', error);
         throw error;
+    }
+}
+
+export async function extractTemplate(context: vscode.ExtensionContext, zipName: string, targetDir: string, createDir: boolean) {
+    try {
+        const zipPath = validZipExist(context, zipName);
+        const zip = new AdmZip(zipPath);
+        if (createDir) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+        zip.extractAllTo(targetDir, true);
+    } catch (error) {
+        throw new Error(`解压模板失败: ${error instanceof Error ? error.message : '未知错误'}`);
     }
 }
